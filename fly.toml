@@ -8,6 +8,9 @@ primary_region = 'iad'
 
 [build]
 
+[env]
+  HF_HUB_OFFLINE = "1"
+
 [http_service]
   internal_port = 8000
   force_https = true
