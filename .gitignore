@@ -4,9 +4,6 @@
 # User data (default location — override with DATA_DIR env var)
 data/
 
-# Vector index (regenerate with: python3 build_index.py)
-index/
-
 # Python cache
 __pycache__/
 *.pyc
