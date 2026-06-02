@@ -17,7 +17,9 @@ from pathlib import Path
 import yaml
 import pdfplumber
 import chromadb
-from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+
+EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 
 ROOT = Path(__file__).parent
 SOURCES_DIR = ROOT / "sources"
@@ -46,7 +48,21 @@ def chunk_text(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) 
     return chunks
 
 
-def extract_text_from_source(path: Path) -> list[tuple[str, dict]]:
+def _crop_page_column(page, column: str):
+    """Crop a pdfplumber page to a column ('left' or 'right'). Returns original page on failure."""
+    try:
+        x0, y0, x1, y1 = page.bbox
+        mid = (x0 + x1) / 2
+        if column == "right":
+            return page.crop((mid, y0, x1, y1))
+        if column == "left":
+            return page.crop((x0, y0, mid, y1))
+    except Exception:
+        pass
+    return page
+
+
+def extract_text_from_source(path: Path, pdf_config: dict | None = None) -> list[tuple[str, dict]]:
     """Ritorna lista di (testo_chunk, metadata)."""
     results = []
     if path.suffix.lower() == ".txt":
@@ -58,9 +74,12 @@ def extract_text_from_source(path: Path) -> list[tuple[str, dict]]:
         for i, chunk in enumerate(chunk_text(full)):
             results.append((chunk, {"passage": i + 1, "page": 0}))
     else:
+        column = (pdf_config or {}).get("extract_column")
         try:
             with pdfplumber.open(path) as pdf:
                 for page_num, page in enumerate(pdf.pages, 1):
+                    if column:
+                        page = _crop_page_column(page, column)
                     text = page.extract_text() or ""
                     for i, chunk in enumerate(chunk_text(text)):
                         results.append((chunk, {"page": page_num, "passage": i + 1}))
@@ -89,10 +108,15 @@ def save_manifest(manifest: dict) -> None:
 
 # ── Index management ──────────────────────────────────────────────────────────
 
-def get_collection():
+def get_collection(reset: bool = False):
     INDEX_DIR.mkdir(exist_ok=True)
     client = chromadb.PersistentClient(path=str(INDEX_DIR))
-    ef = DefaultEmbeddingFunction()
+    ef = SentenceTransformerEmbeddingFunction(model_name=EMBEDDING_MODEL)
+    if reset:
+        try:
+            client.delete_collection(COLLECTION_NAME)
+        except Exception:
+            pass
     return client.get_or_create_collection(
         name=COLLECTION_NAME,
         embedding_function=ef,
@@ -109,9 +133,9 @@ def delete_source_from_index(collection, source_name: str) -> int:
     return len(ids)
 
 
-def index_source(collection, path: Path, source_name: str) -> int:
+def index_source(collection, path: Path, source_name: str, pdf_config: dict | None = None) -> int:
     """Indicizza una fonte. Ritorna il numero di chunk aggiunti."""
-    chunks = extract_text_from_source(path)
+    chunks = extract_text_from_source(path, pdf_config)
     if not chunks:
         return 0
 
@@ -140,7 +164,8 @@ def load_pdf_configs() -> list[dict]:
     return [p for p in config["sources"]["pdfs"] if p.get("enabled", True)]
 
 
-def cmd_status(collection):
+def cmd_status():
+    collection = get_collection()
     manifest = load_manifest()
     pdf_configs = load_pdf_configs()
     total = collection.count()
@@ -161,17 +186,12 @@ def cmd_status(collection):
 
 
 def cmd_build(rebuild: bool = False):
-    collection = get_collection()
+    collection = get_collection(reset=rebuild)
     manifest = load_manifest()
     pdf_configs = load_pdf_configs()
 
     if rebuild:
         print("Ricostruzione completa dell'indice…")
-        for pdf_cfg in pdf_configs:
-            name = pdf_cfg["name"]
-            removed = delete_source_from_index(collection, name)
-            if removed:
-                print(f"  Rimossi {removed} chunk: {name}")
         manifest = {}
 
     changed = 0
@@ -190,7 +210,7 @@ def cmd_build(rebuild: bool = False):
 
         print(f"  ↻ Indicizzazione: {name}…", end=" ", flush=True)
         delete_source_from_index(collection, name)
-        n = index_source(collection, path, name)
+        n = index_source(collection, path, name, pdf_cfg)
         manifest[name] = {"hash": current_hash, "file": path.name, "chunks": n}
         save_manifest(manifest)
         print(f"{n} chunk")
@@ -213,7 +233,7 @@ def main():
     args = parser.parse_args()
 
     if args.status:
-        cmd_status(get_collection())
+        cmd_status()
     else:
         cmd_build(rebuild=args.rebuild)
 

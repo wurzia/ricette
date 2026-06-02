@@ -23,7 +23,9 @@ import requests
 import pdfplumber
 import anthropic
 import chromadb
-from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+
+_EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
@@ -37,7 +39,7 @@ def _get_collection():
     global _chroma_collection
     if _chroma_collection is None and (INDEX_DIR / "manifest.json").exists():
         client = chromadb.PersistentClient(path=str(INDEX_DIR))
-        ef = DefaultEmbeddingFunction()
+        ef = SentenceTransformerEmbeddingFunction(model_name=_EMBEDDING_MODEL)
         try:
             _chroma_collection = client.get_collection(
                 name="fonti_classiche", embedding_function=ef

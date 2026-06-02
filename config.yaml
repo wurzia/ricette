@@ -89,6 +89,7 @@ sources:
     - name: "De re coquinaria (Apicio, I sec. d.C.)"
       file: "apicius_de_re_coquinaria.pdf"
       enabled: true
+      extract_column: right  # dual-column PDF: left=Latin, right=Italian translation
 
     - name: "La Scienza in Cucina (Pellegrino Artusi, 1891)"
       file: "artusi_scienza_cucina.txt"
