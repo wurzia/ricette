@@ -16,5 +16,4 @@ WORKDIR /app
 COPY --from=builder /app/.venv .venv/
 COPY --from=builder /root/.cache/huggingface /root/.cache/huggingface
 COPY . .
-RUN .venv/bin/python build_index.py --rebuild
 CMD ["/app/.venv/bin/fastapi", "run", "server.py"]
