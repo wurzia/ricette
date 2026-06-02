@@ -10,11 +10,6 @@ primary_region = 'iad'
 
 [env]
   HF_HUB_OFFLINE = "1"
-  DATA_DIR = "/data"
-
-[[mounts]]
-  source = "ricette_data"
-  destination = "/data"
 
 [http_service]
   internal_port = 8000
