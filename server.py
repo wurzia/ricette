@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).parent
 load_dotenv(ROOT / ".env")
 
-from agent import stream_agent, load_config  # noqa: E402 (after load_dotenv)
+from agent import stream_agent, load_config, _get_collection  # noqa: E402 (after load_dotenv)
 
 import os
 # DATA_DIR can be set via env to decouple user data from the app directory.
@@ -40,6 +40,11 @@ SAVED_DIR.mkdir(exist_ok=True)
 
 app = FastAPI(title="Il tempo, i luoghi, la gente e i sapori")
 app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
+
+
+@app.on_event("startup")
+async def startup():
+    _get_collection()  # pre-warm embedding model so first chat request isn't slow
 
 ADMIN_USERNAME = "wurzia"
 
@@ -263,7 +268,11 @@ def chat(req: ChatRequest, request: Request):
         history.append({"role": "user", "content": req.message})
         history.append({"role": "assistant", "content": assistant_text})
 
-    return StreamingResponse(generate(), media_type="text/event-stream")
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 class SaveRequest(BaseModel):
