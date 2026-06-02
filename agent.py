@@ -253,10 +253,18 @@ def run_tool(name: str, params: dict, config: dict) -> str:
 
     if name == "cerca_fonti_classiche":
         query = params["query"]
-        source_filter = params.get("fonte", "").lower()
+        alias = params.get("fonte", "").lower()
+
+        # Resolve short alias (e.g. "apicio") to the full source name stored in the index
+        full_source = ""
+        if alias:
+            for pdf_cfg in srcs["pdfs"]:
+                if alias in pdf_cfg["name"].lower():
+                    full_source = pdf_cfg["name"]
+                    break
 
         # try semantic search first
-        sem = _semantic_search(query, source_filter, max_r)
+        sem = _semantic_search(query, full_source, max_r)
         if sem is not None:
             if not sem:
                 return "Nessun risultato trovato nelle fonti classiche."
@@ -268,7 +276,7 @@ def run_tool(name: str, params: dict, config: dict) -> str:
             if not pdf_cfg.get("enabled", True):
                 continue
             pdf_name: str = pdf_cfg["name"]
-            if source_filter and source_filter not in pdf_name.lower():
+            if alias and alias not in pdf_name.lower():
                 continue
             path = SOURCES_DIR / pdf_cfg["file"]
             hits = _pdf_keyword_search(path, query, pdf_name, ctx, max_r)
