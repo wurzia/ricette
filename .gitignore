@@ -1,0 +1,22 @@
+# Secrets & credentials
+.env
+
+# User data (default location — override with DATA_DIR env var)
+data/
+
+# Vector index (regenerate with: python3 build_index.py)
+index/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Claude Code local settings
+.claude/
+
+# macOS
+.DS_Store
+
+# SQLite (legacy)
+*.db

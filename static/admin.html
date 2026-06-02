@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Il tempo, i luoghi, la gente e i sapori</title>
+<style>
+  :root {
+    --bg: #faf9f7;
+    --surface: #ffffff;
+    --border: #e8e3db;
+    --text: #2c2a26;
+    --text-muted: #8a8278;
+    --accent: #c4683a;
+    --accent-hover: #a8532c;
+    --shadow: 0 1px 4px rgba(0,0,0,.08);
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--shadow);
+  }
+
+  .header-left { display: flex; align-items: center; gap: 12px; }
+
+  .back-btn {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: color .15s;
+  }
+  .back-btn:hover { color: var(--accent); }
+
+  .header-title { font-weight: 700; font-size: 15px; }
+  .header-badge {
+    font-size: 11px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 20px;
+    padding: 2px 9px;
+    font-weight: 600;
+  }
+
+  .container {
+    max-width: 760px;
+    margin: 40px auto;
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+
+  .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .card-header h2 { font-size: 14px; font-weight: 700; }
+  .card-header span { font-size: 12px; color: var(--text-muted); }
+
+  /* User table */
+  table { width: 100%; border-collapse: collapse; }
+
+  th, td {
+    padding: 11px 20px;
+    text-align: left;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    background: #faf9f7;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fdf9f6; }
+
+  .badge-admin {
+    font-size: 10px;
+    background: #fef0e8;
+    color: var(--accent);
+    border: 1px solid #f5d5c0;
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-weight: 600;
+    margin-left: 6px;
+  }
+
+  .btn-del {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: #c0392b;
+    cursor: pointer;
+    transition: background .12s, border-color .12s;
+  }
+  .btn-del:hover { background: #fdecea; border-color: #c0392b; }
+
+  /* Create user form */
+  .form-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+  .field { flex: 1; min-width: 160px; }
+
+  .field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 5px;
+  }
+
+  .field input {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--bg);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .field input:focus { border-color: var(--accent); }
+
+  .btn-create {
+    align-self: flex-start;
+    padding: 9px 20px;
+    border-radius: 8px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .btn-create:hover { background: var(--accent-hover); }
+  .btn-create:disabled { background: #ccc; cursor: not-allowed; }
+
+  .form-error { font-size: 12px; color: #c0392b; min-height: 16px; }
+  .form-success { font-size: 12px; color: #27ae60; min-height: 16px; }
+
+  #not-admin {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <a href="/" class="back-btn">← App</a>
+    <span class="header-title">Pannello Admin</span>
+    <span class="header-badge">wurzia</span>
+  </div>
+  <span id="header-user" style="font-size:12px;color:var(--text-muted)"></span>
+</header>
+
+<div id="not-admin" style="display:none">
+  Accesso riservato all'amministratore.
+  <br><br><a href="/" style="color:var(--accent)">Torna all'app</a>
+</div>
+
+<div class="container" id="main" style="display:none">
+
+  <!-- Users list -->
+  <div class="card">
+    <div class="card-header">
+      <h2>Utenti registrati</h2>
+      <span id="user-count"></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Ricette salvate</th>
+          <th>Registrato il</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="user-table-body">
+        <tr><td colspan="4" style="color:var(--text-muted);font-size:13px">Caricamento…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Create user -->
+  <div class="card">
+    <div class="card-header">
+      <h2>Crea nuovo utente</h2>
+    </div>
+    <div class="form-body">
+      <div class="form-row">
+        <div class="field">
+          <label>Username</label>
+          <input type="text" id="new-username" placeholder="nome utente" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="new-password" placeholder="min. 4 caratteri" autocomplete="new-password">
+        </div>
+      </div>
+      <div>
+        <button class="btn-create" id="btn-create" onclick="createUser()">Crea utente</button>
+      </div>
+      <div class="form-error" id="form-error"></div>
+      <div class="form-success" id="form-success"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  async function init() {
+    const me = await fetch("/api/me").then(r => r.json()).catch(() => null);
+    if (!me || !me.is_admin) {
+      document.getElementById("not-admin").style.display = "";
+      return;
+    }
+    document.getElementById("header-user").textContent = me.username;
+    document.getElementById("main").style.display = "";
+    loadUsers();
+  }
+
+  async function loadUsers() {
+    const rows = await fetch("/api/admin/users").then(r => r.json()).catch(() => []);
+    document.getElementById("user-count").textContent = `${rows.length} utente${rows.length !== 1 ? "i" : ""}`;
+    const tbody = document.getElementById("user-table-body");
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-muted);font-size:13px">Nessun utente.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map(u => `
+      <tr>
+        <td>
+          ${escHtml(u.username)}
+          ${u.username === "wurzia" ? '<span class="badge-admin">admin</span>' : ""}
+        </td>
+        <td>${u.recipes}</td>
+        <td>${formatDate(u.created_at)}</td>
+        <td>
+          ${u.username !== "wurzia"
+            ? `<button class="btn-del" onclick="deleteUser('${escHtml(u.username)}')">Elimina</button>`
+            : ""}
+        </td>
+      </tr>`
+    ).join("");
+  }
+
+  async function createUser() {
+    const username = document.getElementById("new-username").value.trim();
+    const password = document.getElementById("new-password").value;
+    const errEl = document.getElementById("form-error");
+    const okEl = document.getElementById("form-success");
+    const btn = document.getElementById("btn-create");
+    errEl.textContent = "";
+    okEl.textContent = "";
+    if (!username || !password) { errEl.textContent = "Compila tutti i campi."; return; }
+    btn.disabled = true;
+    try {
+      const resp = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) { errEl.textContent = data.detail || "Errore"; return; }
+      okEl.textContent = `Utente "${data.username}" creato.`;
+      document.getElementById("new-username").value = "";
+      document.getElementById("new-password").value = "";
+      loadUsers();
+    } catch {
+      errEl.textContent = "Errore di rete.";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function deleteUser(username) {
+    if (!confirm(`Eliminare l'utente "${username}" e tutte le sue ricette?`)) return;
+    const resp = await fetch(`/api/admin/users/${encodeURIComponent(username)}`, { method: "DELETE" });
+    if (resp.ok) loadUsers();
+    else alert("Errore durante l'eliminazione.");
+  }
+
+  function formatDate(iso) {
+    if (!iso) return "—";
+    return iso.slice(0, 10).split("-").reverse().join("/");
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  init();
+</script>
+</body>
+</html>

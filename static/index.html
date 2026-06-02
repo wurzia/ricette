@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Il tempo, i luoghi, la gente e i sapori</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@15/marked.min.js"></script>
+<style>
+  :root {
+    --bg: #faf9f7;
+    --surface: #ffffff;
+    --border: #e8e3db;
+    --text: #2c2a26;
+    --text-muted: #8a8278;
+    --accent: #c4683a;
+    --accent-hover: #a8532c;
+    --user-bg: #2c2a26;
+    --user-text: #faf9f7;
+    --agent-bg: #ffffff;
+    --source-bg: #f5f0ea;
+    --tool-bg: #f0ede8;
+    --shadow: 0 1px 4px rgba(0,0,0,.08);
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    box-shadow: var(--shadow);
+    z-index: 10;
+  }
+
+  .header-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+  .header-title .icon { width: 28px; height: 28px; flex-shrink: 0; }
+
+  .header-sources {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    font-weight: 400;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+    white-space: nowrap;
+  }
+
+  .btn:hover { background: var(--bg); border-color: #ccc; }
+
+  .btn-accent {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .btn-accent:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn-accent:disabled { background: #ccc; border-color: #ccc; cursor: not-allowed; }
+
+  .header-actions { display: flex; gap: 8px; }
+
+  /* ── Chat area ── */
+  #chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 0;
+    scroll-behavior: smooth;
+  }
+
+  .messages-inner {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ── Message bubbles ── */
+  .msg {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 88%;
+  }
+
+  .msg.user { align-self: flex-end; align-items: flex-end; }
+  .msg.agent { align-self: flex-start; align-items: flex-start; }
+
+  .bubble {
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    line-height: 1.65;
+    word-break: break-word;
+  }
+
+  .msg.user .bubble {
+    background: var(--user-bg);
+    color: var(--user-text);
+    border-bottom-right-radius: 4px;
+    white-space: pre-wrap;
+  }
+
+  .msg.agent .bubble {
+    background: var(--agent-bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+    box-shadow: var(--shadow);
+  }
+
+  /* Markdown rendering inside agent bubbles */
+  .msg.agent .bubble p { margin: 0 0 10px; }
+  .msg.agent .bubble p:last-child { margin-bottom: 0; }
+  .msg.agent .bubble ul, .msg.agent .bubble ol { padding-left: 20px; margin: 0 0 10px; }
+  .msg.agent .bubble li { margin: 3px 0; }
+  .msg.agent .bubble h1, .msg.agent .bubble h2, .msg.agent .bubble h3 {
+    margin: 14px 0 6px; font-size: 15px; font-weight: 700;
+  }
+  .msg.agent .bubble strong { font-weight: 700; }
+  .msg.agent .bubble em { font-style: italic; }
+  .msg.agent .bubble code {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 12px;
+    background: var(--tool-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+  .msg.agent .bubble table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px 0;
+    font-size: 13px;
+  }
+  .msg.agent .bubble th,
+  .msg.agent .bubble td {
+    border: 1px solid var(--border);
+    padding: 7px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .msg.agent .bubble th {
+    background: var(--tool-bg);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .msg.agent .bubble tr:nth-child(even) td { background: var(--source-bg); }
+
+  /* tool indicator */
+  .tool-indicator {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--tool-bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    align-self: flex-start;
+  }
+
+  .spinner {
+    width: 10px; height: 10px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* sources */
+  .sources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+  }
+
+  .source-chip {
+    font-size: 11px;
+    background: var(--source-bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 10px;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: background .12s;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .source-chip:hover { background: var(--border); color: var(--text); }
+
+  /* message actions */
+  .msg-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .btn-save {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--accent);
+    cursor: pointer;
+    font-weight: 500;
+    transition: background .12s;
+  }
+
+  .btn-save:hover { background: var(--source-bg); }
+  .btn-save.saved { color: var(--text-muted); cursor: default; }
+
+  /* empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+
+  .empty-state .big-icon { margin-bottom: 16px; }
+  .empty-state h2 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .empty-state p { font-size: 13px; line-height: 1.6; max-width: 360px; margin: 0 auto; }
+
+  .suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 20px;
+  }
+
+  .suggestion {
+    font-size: 12px;
+    padding: 7px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    transition: background .12s, border-color .12s;
+    color: var(--text);
+  }
+
+  .suggestion:hover { background: var(--source-bg); border-color: var(--accent); color: var(--accent); }
+
+  /* ── Input bar ── */
+  footer {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 12px 20px;
+    flex-shrink: 0;
+  }
+
+  .input-wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  textarea {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--bg);
+    resize: none;
+    min-height: 42px;
+    max-height: 140px;
+    line-height: 1.5;
+    outline: none;
+    transition: border-color .15s;
+  }
+
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--text-muted); }
+
+  #send-btn {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background .15s;
+  }
+
+  #send-btn:hover { background: var(--accent-hover); }
+  #send-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+  /* ── Saved panel (slide-in) ── */
+  #saved-panel {
+    position: fixed;
+    top: 56px; right: 0; bottom: 0;
+    width: 300px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    transform: translateX(100%);
+    transition: transform .25s ease;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -2px 0 12px rgba(0,0,0,.06);
+  }
+
+  #saved-panel.open { transform: translateX(0); }
+
+  .panel-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .panel-close { cursor: pointer; font-size: 18px; color: var(--text-muted); }
+
+  #saved-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+
+  .saved-item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text);
+    border: 1px solid transparent;
+    transition: background .12s;
+    word-break: break-word;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .saved-item:hover { background: var(--source-bg); border-color: var(--border); }
+
+  .saved-item-name {
+    flex: 1;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .saved-item-name:hover { color: var(--accent); }
+
+  .btn-delete {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 14px;
+    padding: 0 2px;
+    transition: color .12s;
+  }
+
+  .btn-delete:hover { color: #c0392b; }
+
+  /* recipe viewer modal */
+  #recipe-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.4);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  #recipe-modal.open { display: flex; }
+
+  .modal-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    width: 100%;
+    max-width: 680px;
+    max-height: 80dvh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0,0,0,.18);
+  }
+
+  .modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .modal-header h3 {
+    font-size: 15px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .modal-header-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+  .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    font-size: 14px;
+    line-height: 1.75;
+    word-break: break-word;
+  }
+
+  .modal-body p { margin: 0 0 10px; }
+  .modal-body p:last-child { margin-bottom: 0; }
+  .modal-body ul, .modal-body ol { padding-left: 20px; margin: 0 0 10px; }
+  .modal-body li { margin: 3px 0; }
+  .modal-body h1, .modal-body h2, .modal-body h3 { margin: 14px 0 6px; font-size: 15px; font-weight: 700; }
+  .modal-body strong { font-weight: 700; }
+  .modal-body em { font-style: italic; }
+  .modal-body table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13px; }
+  .modal-body th, .modal-body td { border: 1px solid var(--border); padding: 7px 12px; text-align: left; vertical-align: top; }
+  .modal-body th { background: var(--tool-bg); font-weight: 700; white-space: nowrap; }
+  .modal-body tr:nth-child(even) td { background: var(--source-bg); }
+
+  .modal-close {
+    cursor: pointer;
+    font-size: 20px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    line-height: 1;
+  }
+
+  /* ── Auth modal ── */
+  #auth-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(44,42,38,.55);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(3px);
+  }
+
+  #auth-modal.hidden { display: none; }
+
+  .auth-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    width: 100%;
+    max-width: 360px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.18);
+    overflow: hidden;
+  }
+
+  .auth-header {
+    padding: 24px 24px 0;
+    text-align: center;
+  }
+
+  .auth-header h2 {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .auth-header p {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .auth-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    margin-top: 20px;
+  }
+
+  .auth-tab {
+    flex: 1;
+    padding: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    color: var(--text-muted);
+    border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+  }
+
+  .auth-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .auth-body { padding: 20px 24px 24px; }
+
+  .auth-field {
+    margin-bottom: 14px;
+  }
+
+  .auth-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
+  .auth-field input {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--bg);
+    outline: none;
+    transition: border-color .15s;
+  }
+
+  .auth-field input:focus { border-color: var(--accent); }
+
+  .auth-submit {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+    margin-top: 4px;
+  }
+
+  .auth-submit:hover { background: var(--accent-hover); }
+  .auth-submit:disabled { background: #ccc; cursor: not-allowed; }
+
+  .auth-error {
+    font-size: 12px;
+    color: #c0392b;
+    margin-top: 10px;
+    text-align: center;
+    min-height: 16px;
+  }
+
+  /* username chip in header */
+  .user-chip {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 12px;
+    white-space: nowrap;
+  }
+
+  /* toast */
+  #toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #2c2a26;
+    color: #fff;
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+    z-index: 50;
+  }
+
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">
+    <svg class="icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="14" cy="14" r="13" fill="#f5f0ea" stroke="#e8e3db" stroke-width="1"/>
+      <path d="M3 19 Q10 11 14 15 Q18 19 25 13" stroke="#8fad6e" stroke-width="1.5" fill="none"/>
+      <path d="M3 22 Q11 16 15 19 Q19 22 25 17 L25 25 L3 25 Z" fill="#a8c47a" opacity="0.55"/>
+      <circle cx="20" cy="9" r="3.5" fill="#c4683a" opacity="0.85"/>
+      <path d="M11 19 L11 9 Q11 6.5 13 6 Q15 6.5 15 9 L15 19 Z" fill="#3d5a2a" opacity="0.8"/>
+    </svg>
+    <div>
+      Il tempo, i luoghi, la gente e i sapori
+      <div class="header-sources">GialloZafferano · Sale&amp;Pepe · GamberoRosso · Apicio · Artusi · Ada Boni</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <span class="user-chip" id="user-chip" style="display:none"></span>
+    <a href="/admin" class="btn" id="admin-btn" style="display:none">⚙ Admin</a>
+    <button class="btn" onclick="toggleSaved()">📋 Salvate</button>
+    <button class="btn" onclick="clearChat()">🗑 Nuova chat</button>
+    <button class="btn" id="logout-btn" style="display:none" onclick="logout()">Esci</button>
+  </div>
+</header>
+
+<div id="chat">
+  <div class="messages-inner" id="messages">
+    <div class="empty-state" id="empty-state">
+      <div class="big-icon">
+        <svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="48" cy="48" r="46" fill="#f5f0ea" stroke="#e8e3db" stroke-width="1.5"/>
+          <path d="M2 48 Q2 2 48 2 Q94 2 94 48 L94 60 L2 60 Z" fill="#fdf6ee"/>
+          <circle cx="72" cy="26" r="10" fill="#c4683a" opacity="0.75"/>
+          <circle cx="72" cy="26" r="7" fill="#c4683a" opacity="0.9"/>
+          <path d="M2 62 Q24 44 48 54 Q68 62 94 50 L94 94 L2 94 Z" fill="#b5c98a" opacity="0.5"/>
+          <path d="M2 70 Q28 56 50 64 Q68 70 94 60 L94 94 L2 94 Z" fill="#8fad6e" opacity="0.65"/>
+          <path d="M2 78 L94 78 L94 94 L2 94 Z" fill="#7a9a5c" opacity="0.5"/>
+          <path d="M22 78 L22 48 Q22 40 26 38 Q30 40 30 48 L30 78 Z" fill="#2e4a1e" opacity="0.85"/>
+          <path d="M36 78 L36 54 Q36 48 39 46 Q42 48 42 54 L42 78 Z" fill="#2e4a1e" opacity="0.75"/>
+          <rect x="55" y="60" width="22" height="16" rx="1" fill="#d4a57a" opacity="0.9"/>
+          <path d="M53 62 L66 52 L79 62 Z" fill="#a85c30" opacity="0.9"/>
+          <rect x="62" y="66" width="7" height="10" rx="1" fill="#8a4a22" opacity="0.6"/>
+          <path d="M8 72 Q20 62 30 68" stroke="#6b8f4a" stroke-width="1.5" fill="none"/>
+          <ellipse cx="14" cy="68" rx="4" ry="1.8" fill="#8fad6e" opacity="0.8" transform="rotate(-35 14 68)"/>
+          <ellipse cx="21" cy="64" rx="4" ry="1.8" fill="#8fad6e" opacity="0.8" transform="rotate(-20 21 64)"/>
+          <ellipse cx="28" cy="67" rx="4" ry="1.8" fill="#8fad6e" opacity="0.8" transform="rotate(-45 28 67)"/>
+        </svg>
+      </div>
+      <h2>Il tempo, i luoghi, la gente e i sapori</h2>
+      <p>La cucina italiana è un crocevia di tradizioni, conquiste e stagioni. Scegli un viaggio per iniziare, o chiedi direttamente una ricetta.</p>
+      <div class="suggestions">
+        <div class="suggestion" onclick="sendSuggestion(this)" data-prompt="Iniziamo il viaggio del Tempo. Suggerisci una ricetta profondamente legata alla stagionalità o alla storia, e raccontami quando è il momento giusto per mangiarla.">⏳ Il Tempo</div>
+        <div class="suggestion" onclick="sendSuggestion(this)" data-prompt="Iniziamo il viaggio dei Luoghi. Suggerisci una ricetta che incarna l'identità di un territorio specifico — dove la geografia, il clima o la storia locale hanno plasmato ogni ingrediente.">🗺 I Luoghi</div>
+        <div class="suggestion" onclick="sendSuggestion(this)" data-prompt="Iniziamo il viaggio della Gente. Suggerisci una ricetta legata a un cuoco, a una tradizione familiare o a un momento conviviale — dove le persone sono protagoniste quanto gli ingredienti.">👥 La Gente</div>
+        <div class="suggestion" onclick="sendSuggestion(this)" data-prompt="Iniziamo il viaggio dei Sapori. Suggerisci una ricetta in cui la qualità pura degli ingredienti è tutto — dove i condimenti esaltano senza nascondere, e ogni sapore ha la sua ragione di esistere.">🌿 I Sapori</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="input-wrap">
+    <textarea id="input" placeholder="Chiedi una ricetta o una variante…" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+    <button id="send-btn" onclick="sendMessage()" title="Invia">➤</button>
+  </div>
+</footer>
+
+<div id="saved-panel">
+  <div class="panel-header">
+    <span>📋 Ricette salvate</span>
+    <span class="panel-close" onclick="toggleSaved()">✕</span>
+  </div>
+  <div id="saved-list"></div>
+</div>
+
+<div id="auth-modal">
+  <div class="auth-card">
+    <div class="auth-header">
+      <h2>Il tempo, i luoghi,<br>la gente e i sapori</h2>
+      <p>Accedi per iniziare il tuo viaggio culinario.</p>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Accedi</button>
+      <button class="auth-tab" id="tab-register" style="display:none" onclick="switchTab('register')">Prima configurazione</button>
+    </div>
+    <div class="auth-body">
+      <div class="auth-field">
+        <label>Username</label>
+        <input type="text" id="auth-username" autocomplete="username" placeholder="il tuo nome" onkeydown="authKey(event)">
+      </div>
+      <div class="auth-field">
+        <label>Password</label>
+        <input type="password" id="auth-password" autocomplete="current-password" placeholder="••••••••" onkeydown="authKey(event)">
+      </div>
+      <button class="auth-submit" id="auth-submit" onclick="submitAuth()">Accedi</button>
+      <div class="auth-error" id="auth-error"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- Recipe viewer modal -->
+<div id="recipe-modal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="modal-title">Ricetta</h3>
+      <div class="modal-header-actions">
+        <button class="btn" onclick="copyModalContent()">📋 Copia</button>
+        <button class="btn" style="color:#c0392b" onclick="deleteFromModal()">🗑 Elimina</button>
+      </div>
+      <span class="modal-close" onclick="closeModal()">✕</span>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+  let isStreaming = false;
+  let currentSources = [];
+
+  // ── Auto-resize textarea ──────────────────────────────────────────────────
+  function autoResize(el) {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 140) + "px";
+  }
+
+  function handleKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  function sendSuggestion(el) {
+    document.getElementById("input").value = el.dataset.prompt || el.textContent;
+    sendMessage();
+  }
+
+  // ── Send message ──────────────────────────────────────────────────────────
+  async function sendMessage() {
+    const input = document.getElementById("input");
+    const text = input.value.trim();
+    if (!text || isStreaming) return;
+
+    document.getElementById("empty-state")?.remove();
+    input.value = "";
+    input.style.height = "auto";
+
+    appendUserMessage(text);
+    const { bubble, toolArea, msgEl } = appendAgentMessage();
+
+    isStreaming = true;
+    document.getElementById("send-btn").disabled = true;
+    currentSources = [];
+
+    try {
+      const resp = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const event = JSON.parse(line.slice(6));
+          handleEvent(event, bubble, toolArea, msgEl);
+        }
+      }
+    } catch (err) {
+      bubble.textContent = "Errore di connessione: " + err.message;
+    }
+
+    isStreaming = false;
+    document.getElementById("send-btn").disabled = false;
+    scrollToBottom();
+  }
+
+  function handleEvent(event, bubble, toolArea, msgEl) {
+    if (event.type === "tool_start") {
+      const label = {
+        cerca_giallozafferano: "GialloZafferano",
+        cerca_salepepe: "Sale & Pepe",
+        cerca_gamberorosso: "Gambero Rosso",
+        cerca_fonti_classiche: "Fonti classiche",
+      }[event.content] || event.content;
+      toolArea.innerHTML = `<span class="tool-indicator"><span class="spinner"></span>Cerco su ${label}…</span>`;
+    } else if (event.type === "text") {
+      toolArea.innerHTML = "";
+      bubble._raw = (bubble._raw || "") + event.content;
+      bubble.innerHTML = marked.parse(bubble._raw);
+      scrollToBottom();
+    } else if (event.type === "sources") {
+      currentSources = event.content;
+      renderSources(event.content, msgEl);
+    } else if (event.type === "done") {
+      toolArea.innerHTML = "";
+      renderMsgActions(bubble._raw || "", msgEl);
+    }
+  }
+
+  // ── DOM helpers ───────────────────────────────────────────────────────────
+  function appendUserMessage(text) {
+    const el = document.createElement("div");
+    el.className = "msg user";
+    el.innerHTML = `<div class="bubble"></div>`;
+    el.querySelector(".bubble").textContent = text;
+    document.getElementById("messages").appendChild(el);
+    scrollToBottom();
+  }
+
+  function appendAgentMessage() {
+    const msgEl = document.createElement("div");
+    msgEl.className = "msg agent";
+    msgEl.innerHTML = `
+      <div class="tool-area"></div>
+      <div class="bubble"></div>
+    `;
+    document.getElementById("messages").appendChild(msgEl);
+    scrollToBottom();
+    return {
+      bubble: msgEl.querySelector(".bubble"),
+      toolArea: msgEl.querySelector(".tool-area"),
+      msgEl,
+    };
+  }
+
+  function renderSources(sources, msgEl) {
+    if (!sources.length) return;
+    const div = document.createElement("div");
+    div.className = "sources";
+    const seen = new Set();
+    for (const s of sources) {
+      const url = s.url || "";
+      const label = s.titolo || s.fonte || "fonte";
+      const key = url || label;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (url) {
+        const a = document.createElement("a");
+        a.className = "source-chip";
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.title = label;
+        a.textContent = `${s.fonte ? s.fonte + " · " : ""}${label}`;
+        div.appendChild(a);
+      } else {
+        const span = document.createElement("span");
+        span.className = "source-chip";
+        span.textContent = `${s.fonte || label}`;
+        div.appendChild(span);
+      }
+    }
+    msgEl.appendChild(div);
+  }
+
+  function looksLikeRecipe(text) {
+    const lower = text.toLowerCase();
+    return lower.includes("ingredienti") && (
+      lower.includes("procedimento") ||
+      lower.includes("preparazione") ||
+      lower.includes("istruzioni")
+    );
+  }
+
+  function renderMsgActions(content, msgEl) {
+    if (!looksLikeRecipe(content)) return;
+    const div = document.createElement("div");
+    div.className = "msg-actions";
+    const btn = document.createElement("button");
+    btn.className = "btn-save";
+    btn.textContent = "💾 Salva ricetta";
+    btn.onclick = () => saveRecipe(content, btn);
+    div.appendChild(btn);
+    msgEl.appendChild(div);
+  }
+
+  // ── Save recipe ───────────────────────────────────────────────────────────
+  async function saveRecipe(content, btn) {
+    const firstLine = content.split("\n").find(l => l.trim()) || "ricetta";
+    const title = firstLine.replace(/^#+\s*/, "").slice(0, 60);
+    btn.textContent = "💾 Salvo…";
+    btn.disabled = true;
+    try {
+      const resp = await fetch("/api/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, content, sources: currentSources }),
+      });
+      const data = await resp.json();
+      btn.textContent = "✓ Salvata";
+      btn.classList.add("saved");
+      showToast(`Salvata: ${data.saved}`);
+      refreshSavedList();
+    } catch {
+      btn.textContent = "💾 Salva ricetta";
+      btn.disabled = false;
+    }
+  }
+
+  // ── Clear chat ────────────────────────────────────────────────────────────
+  async function clearChat() {
+    if (isStreaming) return;
+    await fetch("/api/clear", { method: "POST" });
+    const messages = document.getElementById("messages");
+    messages.innerHTML = `
+      <div class="empty-state" id="empty-state">
+        <div class="big-icon">
+          <svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="48" cy="48" r="46" fill="#f5f0ea" stroke="#e8e3db" stroke-width="1.5"/>
+            <path d="M2 48 Q2 2 48 2 Q94 2 94 48 L94 60 L2 60 Z" fill="#fdf6ee"/>
+            <circle cx="72" cy="26" r="10" fill="#c4683a" opacity="0.75"/>
+            <circle cx="72" cy="26" r="7" fill="#c4683a" opacity="0.9"/>
+            <path d="M2 62 Q24 44 48 54 Q68 62 94 50 L94 94 L2 94 Z" fill="#b5c98a" opacity="0.5"/>
+            <path d="M2 70 Q28 56 50 64 Q68 70 94 60 L94 94 L2 94 Z" fill="#8fad6e" opacity="0.65"/>
+            <path d="M2 78 L94 78 L94 94 L2 94 Z" fill="#7a9a5c" opacity="0.5"/>
+            <path d="M22 78 L22 48 Q22 40 26 38 Q30 40 30 48 L30 78 Z" fill="#2e4a1e" opacity="0.85"/>
+            <path d="M36 78 L36 54 Q36 48 39 46 Q42 48 42 54 L42 78 Z" fill="#2e4a1e" opacity="0.75"/>
+            <rect x="55" y="60" width="22" height="16" rx="1" fill="#d4a57a" opacity="0.9"/>
+            <path d="M53 62 L66 52 L79 62 Z" fill="#a85c30" opacity="0.9"/>
+            <rect x="62" y="66" width="7" height="10" rx="1" fill="#8a4a22" opacity="0.6"/>
+            <path d="M8 72 Q20 62 30 68" stroke="#6b8f4a" stroke-width="1.5" fill="none"/>
+            <ellipse cx="14" cy="68" rx="4" ry="1.8" fill="#8fad6e" opacity="0.8" transform="rotate(-35 14 68)"/>
+            <ellipse cx="21" cy="64" rx="4" ry="1.8" fill="#8fad6e" opacity="0.8" transform="rotate(-20 21 64)"/>
+            <ellipse cx="28" cy="67" rx="4" ry="1.8" fill="#8fad6e" opacity="0.8" transform="rotate(-45 28 67)"/>
+          </svg>
+        </div>
+        <h2>Il tempo, i luoghi, la gente e i sapori</h2>
+        <p>La cucina italiana è un crocevia di tradizioni, conquiste e stagioni. Scegli un viaggio per iniziare, o chiedi direttamente una ricetta.</p>
+        <div class="suggestions">
+          <div class="suggestion" onclick="sendSuggestion(this)" data-prompt="Iniziamo il viaggio del Tempo. Suggerisci una ricetta profondamente legata alla stagionalità o alla storia, e raccontami quando è il momento giusto per mangiarla.">⏳ Il Tempo</div>
+          <div class="suggestion" onclick="sendSuggestion(this)" data-prompt="Iniziamo il viaggio dei Luoghi. Suggerisci una ricetta che incarna l'identità di un territorio specifico — dove la geografia, il clima o la storia locale hanno plasmato ogni ingrediente.">🗺 I Luoghi</div>
+          <div class="suggestion" onclick="sendSuggestion(this)" data-prompt="Iniziamo il viaggio della Gente. Suggerisci una ricetta legata a un cuoco, a una tradizione familiare o a un momento conviviale — dove le persone sono protagoniste quanto gli ingredienti.">👥 La Gente</div>
+          <div class="suggestion" onclick="sendSuggestion(this)" data-prompt="Iniziamo il viaggio dei Sapori. Suggerisci una ricetta in cui la qualità pura degli ingredienti è tutto — dove i condimenti esaltano senza nascondere, e ogni sapore ha la sua ragione di esistere.">🌿 I Sapori</div>
+        </div>
+      </div>`;
+    currentSources = [];
+  }
+
+  // ── Saved panel ───────────────────────────────────────────────────────────
+  function toggleSaved() {
+    const panel = document.getElementById("saved-panel");
+    panel.classList.toggle("open");
+    if (panel.classList.contains("open")) refreshSavedList();
+  }
+
+  async function refreshSavedList() {
+    const list = document.getElementById("saved-list");
+    const data = await fetch("/api/saved").then(r => r.json());
+    if (!data.length) {
+      list.innerHTML = `<p style="padding:16px;font-size:13px;color:var(--text-muted)">Nessuna ricetta salvata.</p>`;
+      return;
+    }
+    list.innerHTML = data.map(f => `
+      <div class="saved-item" data-file="${f.file}">
+        <span class="saved-item-name" onclick="openRecipe('${f.file}', '${f.name}')">📄 ${f.name}</span>
+        <button class="btn-delete" title="Elimina" onclick="deleteRecipe('${f.file}', this)">✕</button>
+      </div>`
+    ).join("");
+  }
+
+  // ── Recipe modal ──────────────────────────────────────────────────────────
+  let _currentModalFile = null;
+
+  async function openRecipe(file, name) {
+    _currentModalFile = file;
+    document.getElementById("modal-title").textContent = name;
+    const body = document.getElementById("modal-body");
+    body.innerHTML = "<em style='color:var(--text-muted)'>Caricamento…</em>";
+    document.getElementById("recipe-modal").classList.add("open");
+    const data = await fetch(`/api/saved/${file}`).then(r => r.json());
+    body._raw = data.content;
+    body.innerHTML = marked.parse(data.content);
+  }
+
+  function closeModal() {
+    document.getElementById("recipe-modal").classList.remove("open");
+    _currentModalFile = null;
+  }
+
+  // close on backdrop click
+  document.getElementById("recipe-modal").addEventListener("click", e => {
+    if (e.target === e.currentTarget) closeModal();
+  });
+
+  function copyModalContent() {
+    const body = document.getElementById("modal-body");
+    navigator.clipboard.writeText(body.innerHTML).then(() => showToast("Copiato!"));
+  }
+
+  async function deleteFromModal() {
+    if (!_currentModalFile) return;
+    await deleteRecipe(_currentModalFile, null);
+    closeModal();
+  }
+
+  async function deleteRecipe(file, btn) {
+    if (!confirm("Eliminare questa ricetta?")) return;
+    await fetch(`/api/saved/${file}`, { method: "DELETE" });
+    showToast("Ricetta eliminata");
+    refreshSavedList();
+    if (btn) btn.closest(".saved-item").remove();
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2500);
+  }
+
+  function scrollToBottom() {
+    const chat = document.getElementById("chat");
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  let _authMode = "login";
+
+  function switchTab(mode) {
+    _authMode = mode;
+    document.getElementById("tab-login").classList.toggle("active", mode === "login");
+    document.getElementById("tab-register").classList.toggle("active", mode === "register");
+    document.getElementById("auth-submit").textContent = mode === "login" ? "Accedi" : "Registrati";
+    document.getElementById("auth-error").textContent = "";
+    document.getElementById("auth-password").autocomplete = mode === "login" ? "current-password" : "new-password";
+  }
+
+  function authKey(e) {
+    if (e.key === "Enter") submitAuth();
+  }
+
+  async function submitAuth() {
+    const username = document.getElementById("auth-username").value.trim();
+    const password = document.getElementById("auth-password").value;
+    const errEl = document.getElementById("auth-error");
+    const btn = document.getElementById("auth-submit");
+    errEl.textContent = "";
+    if (!username || !password) { errEl.textContent = "Compila tutti i campi."; return; }
+    btn.disabled = true;
+    try {
+      const resp = await fetch(`/api/${_authMode}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) { errEl.textContent = data.detail || "Errore"; return; }
+      document.getElementById("auth-modal").classList.add("hidden");
+      setUser(data.username, data.username === "wurzia");
+    } catch {
+      errEl.textContent = "Errore di rete.";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function setUser(username, isAdmin) {
+    const chip = document.getElementById("user-chip");
+    chip.textContent = username;
+    chip.style.display = "";
+    document.getElementById("logout-btn").style.display = "";
+    if (isAdmin) document.getElementById("admin-btn").style.display = "";
+  }
+
+  async function logout() {
+    await fetch("/api/logout", { method: "POST" });
+    document.getElementById("user-chip").style.display = "none";
+    document.getElementById("logout-btn").style.display = "none";
+    document.getElementById("admin-btn").style.display = "none";
+    document.getElementById("auth-modal").classList.remove("hidden");
+    document.getElementById("auth-username").value = "";
+    document.getElementById("auth-password").value = "";
+    document.getElementById("auth-error").textContent = "";
+    switchTab("login");
+    checkFirstRun();
+  }
+
+  async function checkFirstRun() {
+    const data = await fetch("/api/first-run").then(r => r.json()).catch(() => null);
+    if (data && data.first_run) {
+      document.getElementById("tab-register").style.display = "";
+      switchTab("register");
+    } else {
+      document.getElementById("tab-register").style.display = "none";
+      switchTab("login");
+    }
+  }
+
+  async function checkAuth() {
+    const data = await fetch("/api/me").then(r => r.json()).catch(() => null);
+    if (data && data.username) {
+      document.getElementById("auth-modal").classList.add("hidden");
+      setUser(data.username, data.is_admin);
+    } else {
+      checkFirstRun();
+    }
+  }
+
+  checkAuth();
+</script>
+</body>
+</html>
