@@ -88,14 +88,17 @@ sources:
       file: "apicius_de_re_coquinaria.pdf"
       enabled: true
       extract_column: right  # dual-column PDF: left=Latin, right=Italian translation
+      recipe_boundary: 'CAPO\s+[IVX]+'  # each CAPO section is one recipe
 
     - name: "La Scienza in Cucina (Pellegrino Artusi, 1891)"
       file: "artusi_scienza_cucina.txt"
       enabled: true
+      recipe_boundary: '^\d+[.•:»,]+\s*[-–]'  # numbered recipes: "1. - Brodo"
 
     - name: "Il Talismano della Felicità (Ada Boni)"
       file: "ada_boni_talismano.pdf"
       enabled: true
+      recipe_boundary: '^[A-Z][A-Z\s()&,''/-]{4,}$'  # ALL-CAPS recipe titles
 
 search:
   max_results_per_source: 4

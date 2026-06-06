@@ -8,6 +8,7 @@ Uso:
     python build_index.py --status     # mostra lo stato dell'indice senza modificarlo
 """
 
+import re
 import sys
 import json
 import hashlib
@@ -48,6 +49,29 @@ def chunk_text(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) 
     return chunks
 
 
+def split_into_recipes(text: str, pattern: str) -> list[tuple[int, str]]:
+    """Split text into [(recipe_idx, recipe_text)] using a boundary regex.
+    Each boundary marker is included at the start of its recipe block."""
+    parts = re.split(f"({pattern})", text, flags=re.MULTILINE)
+    recipes = []
+    idx = 0
+    if parts[0].strip():          # text before first boundary = preamble
+        recipes.append((idx, parts[0]))
+        idx += 1
+    i = 1
+    while i < len(parts):
+        body = parts[i]           # the matched boundary itself
+        if i + 1 < len(parts):
+            body += parts[i + 1]  # text following the boundary
+            i += 2
+        else:
+            i += 1
+        if body.strip():
+            recipes.append((idx, body))
+            idx += 1
+    return recipes
+
+
 def _crop_page_column(page, column: str):
     """Crop a pdfplumber page to a column ('left' or 'right'). Returns original page on failure."""
     try:
@@ -63,26 +87,50 @@ def _crop_page_column(page, column: str):
 
 
 def extract_text_from_source(path: Path, pdf_config: dict | None = None) -> list[tuple[str, dict]]:
-    """Ritorna lista di (testo_chunk, metadata)."""
+    """Ritorna lista di (testo_chunk, metadata).
+
+    When pdf_config contains 'recipe_boundary', the source is split into
+    individual recipes first. Each chunk then carries a recipe_id so the
+    retrieval layer can reconstruct the full recipe from all its chunks.
+    """
     results = []
+    cfg = pdf_config or {}
+    boundary = cfg.get("recipe_boundary")
+    column = cfg.get("extract_column")
+
     if path.suffix.lower() == ".txt":
         try:
             full = path.read_text(encoding="utf-8", errors="replace")
         except Exception as e:
             print(f"  ! Errore lettura {path.name}: {e}")
             return []
-        for i, chunk in enumerate(chunk_text(full)):
-            results.append((chunk, {"passage": i + 1, "page": 0}))
+        if boundary:
+            for recipe_idx, recipe_text in split_into_recipes(full, boundary):
+                for i, chunk in enumerate(chunk_text(recipe_text)):
+                    results.append((chunk, {"passage": i + 1, "page": 0,
+                                            "recipe_id": f"recipe_{recipe_idx}"}))
+        else:
+            for i, chunk in enumerate(chunk_text(full)):
+                results.append((chunk, {"passage": i + 1, "page": 0}))
     else:
-        column = (pdf_config or {}).get("extract_column")
         try:
-            with pdfplumber.open(path) as pdf:
-                for page_num, page in enumerate(pdf.pages, 1):
-                    if column:
-                        page = _crop_page_column(page, column)
-                    text = page.extract_text() or ""
-                    for i, chunk in enumerate(chunk_text(text)):
-                        results.append((chunk, {"page": page_num, "passage": i + 1}))
+            if boundary:
+                # Concatenate all pages then split by recipe boundary
+                all_text = ""
+                with pdfplumber.open(path) as pdf:
+                    for page in pdf.pages:
+                        p = _crop_page_column(page, column) if column else page
+                        all_text += (p.extract_text() or "") + "\n"
+                for recipe_idx, recipe_text in split_into_recipes(all_text, boundary):
+                    for i, chunk in enumerate(chunk_text(recipe_text)):
+                        results.append((chunk, {"passage": i + 1, "page": 0,
+                                                "recipe_id": f"recipe_{recipe_idx}"}))
+            else:
+                with pdfplumber.open(path) as pdf:
+                    for page_num, page in enumerate(pdf.pages, 1):
+                        p = _crop_page_column(page, column) if column else page
+                        for i, chunk in enumerate(chunk_text(p.extract_text() or "")):
+                            results.append((chunk, {"page": page_num, "passage": i + 1}))
         except Exception as e:
             print(f"  ! Errore lettura PDF {path.name}: {e}")
     return results

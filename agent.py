@@ -139,7 +139,11 @@ def _gr_search(query: str, max_results: int) -> list[dict]:
 
 
 def _semantic_search(query: str, source_filter: str, max_results: int) -> list[dict] | None:
-    """Semantic search via chromadb. Returns None if index not available."""
+    """Semantic search via chromadb. Returns None if index not available.
+
+    When chunks carry a recipe_id, fetches all sibling chunks for each matched
+    recipe and returns the full recipe text instead of a single fragment.
+    """
     col = _get_collection()
     if col is None:
         return None
@@ -147,29 +151,62 @@ def _semantic_search(query: str, source_filter: str, max_results: int) -> list[d
     try:
         res = col.query(
             query_texts=[query],
-            n_results=min(max_results, col.count()),
+            n_results=min(max_results * 3, col.count()),
             where=where,
             include=["documents", "metadatas", "distances"],
         )
     except Exception:
         return None
 
-    results = []
+    # Group by (source, recipe_id); keep best score per recipe.
+    seen_recipes: dict[tuple, dict] = {}
+    bare_results: list[dict] = []
+
     for doc, meta, dist in zip(
         res["documents"][0], res["metadatas"][0], res["distances"][0]
     ):
-        score = round(1 - dist, 3)  # cosine similarity
-        entry = {
-            "fonte": meta.get("source", ""),
-            "estratto": doc,
-            "score": score,
-        }
-        if meta.get("page"):
-            entry["pagina"] = meta["page"]
+        score = round(1 - dist, 3)
+        source = meta.get("source", "")
+        recipe_id = meta.get("recipe_id")
+
+        if recipe_id:
+            key = (source, recipe_id)
+            if key not in seen_recipes or score > seen_recipes[key]["score"]:
+                seen_recipes[key] = {"score": score, "source": source,
+                                     "recipe_id": recipe_id}
         else:
-            entry["passaggio"] = meta.get("passage", "")
-        results.append(entry)
-    return results
+            entry = {"fonte": source, "estratto": doc, "score": score}
+            if meta.get("page"):
+                entry["pagina"] = meta["page"]
+            else:
+                entry["passaggio"] = meta.get("passage", "")
+            bare_results.append(entry)
+
+    # Reconstruct full recipe text from all chunks sharing the same recipe_id.
+    recipe_results: list[dict] = []
+    for (source, recipe_id), info in seen_recipes.items():
+        try:
+            fetched = col.get(
+                where={"$and": [{"source": {"$eq": source}},
+                                {"recipe_id": {"$eq": recipe_id}}]},
+                include=["documents", "metadatas"],
+            )
+            pairs = sorted(
+                zip(fetched["documents"], fetched["metadatas"]),
+                key=lambda x: x[1].get("passage", 0),
+            )
+            full_text = " ".join(doc for doc, _ in pairs)
+            recipe_results.append({
+                "fonte": source,
+                "estratto": full_text,
+                "score": info["score"],
+            })
+        except Exception:
+            pass
+
+    all_results = recipe_results + bare_results
+    all_results.sort(key=lambda x: x["score"], reverse=True)
+    return all_results[:max_results]
 
 
 def _pdf_keyword_search(

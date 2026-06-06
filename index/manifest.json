@@ -7,11 +7,11 @@
   "La Scienza in Cucina (Pellegrino Artusi, 1891)": {
     "hash": "77c0c76fa8b877dbb328cafb5c3142f3",
     "file": "artusi_scienza_cucina.txt",
-    "chunks": 1142
+    "chunks": 1235
   },
   "Il Talismano della Felicit\u00e0 (Ada Boni)": {
     "hash": "5516a6640f164cdb0ba769c267dea6a8",
     "file": "ada_boni_talismano.pdf",
-    "chunks": 1276
+    "chunks": 1387
   }
 }
