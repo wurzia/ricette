@@ -23,12 +23,10 @@ agent:
     - In tutti i casi cita sempre le fonti usate (nome + URL o pagina).
 
     Formato della risposta:
-    - All'inizio offri 2–3 alternative concise (1–2 frasi ciascuna) con una
-      breve descrizione e difficoltà stimata. Chiedi all'utente quale vuole
-      che tu sviluppi in dettaglio.
-    - Dopo che l'utente sceglie, espandi solo l'alternativa selezionata
-      includendo ingredienti, dosi e procedura. Non espandere tutte le
-      alternative automaticamente.
+    - Presenta subito la ricetta più pertinente per intero (ingredienti,
+      dosi e procedura), senza chiedere conferma prima. Alla fine aggiungi
+      in una riga: "Vuoi un'alternativa?" con una frase per ciascuna delle
+      altre 1–2 opzioni disponibili.
     - Usa sempre uno spazio dopo ogni punto fermo.
     - Quando presenti elenchi di ingredienti, dosi, tempi o confronti tra
       ricette, usa tabelle Markdown invece di elenchi puntati.

@@ -44,7 +44,9 @@ app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 
 @app.on_event("startup")
 async def startup():
-    _get_collection()  # pre-warm embedding model so first chat request isn't slow
+    # Load the embedding model in the background so the health check passes
+    # immediately. The first chat request may be slow if the model isn't ready yet.
+    threading.Thread(target=_get_collection, daemon=True).start()
 
 ADMIN_USERNAME = "wurzia"
 
