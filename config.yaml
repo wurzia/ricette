@@ -103,4 +103,4 @@ sources:
 search:
   max_results_per_source: 4
   pdf_context_chars: 400
-  timeout_seconds: 8
+  timeout_seconds: 4

@@ -44,9 +44,7 @@ app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 
 @app.on_event("startup")
 async def startup():
-    # Load the embedding model in the background so the health check passes
-    # immediately. The first chat request may be slow if the model isn't ready yet.
-    threading.Thread(target=warmup, daemon=True).start()
+    warmup()  # block until model weights are loaded; server opens after this
 
 ADMIN_USERNAME = "wurzia"
 

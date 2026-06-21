@@ -13,6 +13,7 @@ import re
 import json
 import textwrap
 import threading
+import concurrent.futures
 from pathlib import Path
 
 ROOT = Path(__file__).parent
@@ -121,12 +122,12 @@ def _sp_search(query: str, max_results: int, timeout: int) -> list[dict]:
     return results
 
 
-def _gr_search(query: str, max_results: int) -> list[dict]:
+def _gr_search(query: str, max_results: int, timeout: int = 4) -> list[dict]:
     """Gambero Rosso via Google site: search (sito blocca scraper diretti)."""
     q = requests.utils.quote(f"site:gamberorosso.it {query}")
     url = f"https://www.google.com/search?q={q}&num={max_results}"
     try:
-        r = requests.get(url, headers=HEADERS, timeout=15)
+        r = requests.get(url, headers=HEADERS, timeout=timeout)
         soup = BeautifulSoup(r.text, "html.parser")
     except Exception as exc:
         return [{"errore": str(exc)}]
@@ -298,7 +299,7 @@ def run_tool(name: str, params: dict, config: dict) -> str:
     if name == "cerca_gamberorosso":
         if not srcs["gamberorosso"]["enabled"]:
             return "Fonte disabilitata."
-        results = _gr_search(params["query"], max_r)
+        results = _gr_search(params["query"], max_r, timeout)
         return json.dumps(results, ensure_ascii=False, indent=2)
 
     if name == "cerca_fonti_classiche":
@@ -471,18 +472,20 @@ def stream_agent(user_message: str, config: dict, history: list | None = None):
         if stop_reason != "tool_use":
             break
 
-        # execute tool calls
+        # execute tool calls in parallel
+        tool_blocks = [b for b in response_content if b.type == "tool_use"]
+        with concurrent.futures.ThreadPoolExecutor() as ex:
+            future_to_block = {ex.submit(run_tool, b.name, b.input, config): b for b in tool_blocks}
+            results_map = {f: f.result() for f in concurrent.futures.as_completed(future_to_block)}
+
         tool_results = []
-        for block in response_content:
-            if block.type != "tool_use":
-                continue
-            raw = run_tool(block.name, block.input, config)
+        for future, block in [(f, future_to_block[f]) for f in future_to_block]:
+            raw = results_map[future]
             tool_results.append({
                 "type": "tool_result",
                 "tool_use_id": block.id,
                 "content": raw,
             })
-            # collect sources from tool output
             try:
                 items = json.loads(raw) if isinstance(raw, str) else []
                 if isinstance(items, list):
