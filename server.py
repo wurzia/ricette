@@ -35,6 +35,7 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ROOT / "data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 USERS_FILE = DATA_DIR / "users.json"
+SESSIONS_FILE = DATA_DIR / "sessions.json"
 SAVED_DIR = DATA_DIR / "recipes"
 SAVED_DIR.mkdir(exist_ok=True)
 
@@ -57,9 +58,23 @@ def _verify_pw(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode(), hashed.encode())
 
 # In-memory: sessions {token -> username}, histories {username -> [messages]}
-_sessions: dict[str, str] = {}
 _sessions_lock = threading.Lock()
 _histories: dict[str, list[dict]] = {}
+
+
+def _load_sessions() -> dict:
+    if not SESSIONS_FILE.exists():
+        return {}
+    try:
+        return json.loads(SESSIONS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_sessions(sessions: dict) -> None:
+    tmp = SESSIONS_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(sessions, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(SESSIONS_FILE)
 
 
 # ── User store (users.json) ───────────────────────────────────────────────────
@@ -87,7 +102,7 @@ def require_user(request: Request) -> str:
     if not token:
         raise HTTPException(status_code=401, detail="Non autenticato")
     with _sessions_lock:
-        username = _sessions.get(token)
+        username = _load_sessions().get(token)
     if not username:
         raise HTTPException(status_code=401, detail="Sessione non valida")
     return username
@@ -103,7 +118,9 @@ def require_admin(request: Request) -> str:
 def _new_session(response: Response, username: str) -> None:
     token = secrets.token_urlsafe(32)
     with _sessions_lock:
-        _sessions[token] = username
+        sessions = _load_sessions()
+        sessions[token] = username
+        _save_sessions(sessions)
     response.set_cookie("session", token, httponly=True, samesite="lax", max_age=30 * 24 * 3600)
 
 
@@ -162,7 +179,9 @@ def logout(request: Request, response: Response):
     token = request.cookies.get("session")
     if token:
         with _sessions_lock:
-            _sessions.pop(token, None)
+            sessions = _load_sessions()
+            sessions.pop(token, None)
+            _save_sessions(sessions)
     response.delete_cookie("session")
     return {"ok": True}
 
@@ -173,7 +192,7 @@ def me(request: Request):
     if not token:
         return None
     with _sessions_lock:
-        username = _sessions.get(token)
+        username = _load_sessions().get(token)
     if not username:
         return None
     return {"username": username, "is_admin": username == ADMIN_USERNAME}
@@ -230,9 +249,9 @@ def admin_delete_user(username: str, request: Request):
     save_users(users)
     # Revoke sessions
     with _sessions_lock:
-        for token, uname in list(_sessions.items()):
-            if uname == username:
-                del _sessions[token]
+        sessions = _load_sessions()
+        sessions = {t: u for t, u in sessions.items() if u != username}
+        _save_sessions(sessions)
     # Delete recipe folder
     udir = SAVED_DIR / username
     if udir.exists():
