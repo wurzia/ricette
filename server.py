@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).parent
 load_dotenv(ROOT / ".env")
 
-from agent import stream_agent, load_config, _get_collection  # noqa: E402 (after load_dotenv)
+from agent import stream_agent, load_config, warmup  # noqa: E402 (after load_dotenv)
 
 import os
 # DATA_DIR can be set via env to decouple user data from the app directory.
@@ -46,7 +46,7 @@ app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 async def startup():
     # Load the embedding model in the background so the health check passes
     # immediately. The first chat request may be slow if the model isn't ready yet.
-    threading.Thread(target=_get_collection, daemon=True).start()
+    threading.Thread(target=warmup, daemon=True).start()
 
 ADMIN_USERNAME = "wurzia"
 
@@ -342,4 +342,4 @@ def delete_saved(filename: str, request: Request):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)

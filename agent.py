@@ -48,6 +48,16 @@ def _get_collection():
             _chroma_collection = None
     return _chroma_collection
 
+
+def warmup():
+    """Force the embedding model weights to load so the first query isn't slow."""
+    col = _get_collection()
+    if col is not None:
+        try:
+            col.query(query_texts=["warmup"], n_results=1)
+        except Exception:
+            pass
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "

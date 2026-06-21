@@ -16,4 +16,4 @@ WORKDIR /app
 COPY --from=builder /app/.venv .venv/
 COPY --from=builder /root/.cache/huggingface /root/.cache/huggingface
 COPY . .
-CMD ["/app/.venv/bin/fastapi", "run", "server.py"]
+CMD ["/app/.venv/bin/uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
