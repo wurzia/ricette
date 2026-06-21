@@ -45,8 +45,9 @@ app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 
 @app.on_event("startup")
 async def startup():
-    import asyncio
-    await asyncio.to_thread(warmup)  # load weights before accepting connections, without blocking event loop
+    # Warmup takes ~15s — start it in the background so the server opens
+    # immediately. Chat requests block at model_ready.wait() until it's done.
+    threading.Thread(target=warmup, daemon=True).start()
 
 ADMIN_USERNAME = "wurzia"
 
