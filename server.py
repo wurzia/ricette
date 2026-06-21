@@ -45,7 +45,8 @@ app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 
 @app.on_event("startup")
 async def startup():
-    warmup()  # block until model weights are loaded; server opens after this
+    import asyncio
+    await asyncio.to_thread(warmup)  # load weights before accepting connections, without blocking event loop
 
 ADMIN_USERNAME = "wurzia"
 

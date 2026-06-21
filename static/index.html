@@ -805,6 +805,7 @@
     isStreaming = true;
     document.getElementById("send-btn").disabled = true;
     currentSources = [];
+    toolArea.innerHTML = `<span class="tool-indicator"><span class="spinner"></span>Elaborazione in corso…</span>`;
 
     try {
       const resp = await fetch("/api/chat", {
@@ -838,17 +839,23 @@
     scrollToBottom();
   }
 
+  const TOOL_LABELS = {
+    cerca_giallozafferano: "GialloZafferano",
+    cerca_salepepe: "Sale & Pepe",
+    cerca_gamberorosso: "Gambero Rosso",
+    cerca_fonti_classiche: "fonti classiche",
+  };
+
   function handleEvent(event, bubble, toolArea, msgEl) {
     if (event.type === "tool_start") {
-      const label = {
-        cerca_giallozafferano: "GialloZafferano",
-        cerca_salepepe: "Sale & Pepe",
-        cerca_gamberorosso: "Gambero Rosso",
-        cerca_fonti_classiche: "Fonti classiche",
-      }[event.content] || event.content;
-      toolArea.innerHTML = `<span class="tool-indicator"><span class="spinner"></span>Cerco su ${label}…</span>`;
+      const label = TOOL_LABELS[event.content] || event.content;
+      const existing = toolArea.dataset.tools ? toolArea.dataset.tools.split(",") : [];
+      if (!existing.includes(label)) existing.push(label);
+      toolArea.dataset.tools = existing.join(",");
+      toolArea.innerHTML = `<span class="tool-indicator"><span class="spinner"></span>Cerco su ${existing.join(", ")}…</span>`;
     } else if (event.type === "text") {
       toolArea.innerHTML = "";
+      delete toolArea.dataset.tools;
       bubble._raw = (bubble._raw || "") + event.content;
       bubble.innerHTML = marked.parse(bubble._raw);
       scrollToBottom();
@@ -857,6 +864,7 @@
       renderSources(event.content, msgEl);
     } else if (event.type === "done") {
       toolArea.innerHTML = "";
+      delete toolArea.dataset.tools;
       renderMsgActions(bubble._raw || "", msgEl);
     }
   }
