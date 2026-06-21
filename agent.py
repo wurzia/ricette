@@ -8,9 +8,12 @@ Uso:
     python agent.py "cerca una ricetta per la carbonara"
 """
 
+import os
 import sys
 import re
 import json
+import time
+import hashlib
 import textwrap
 import threading
 import concurrent.futures
@@ -19,6 +22,37 @@ from pathlib import Path
 ROOT = Path(__file__).parent
 SOURCES_DIR = ROOT / "sources"
 CONFIG_FILE = ROOT / "config.yaml"
+
+CACHE_DIR = Path(os.environ.get("DATA_DIR", ROOT / "data")) / "cache"
+CACHE_TTL = 7 * 24 * 3600  # seconds
+
+
+def _cache_get(source: str, query: str):
+    key = hashlib.md5(f"{source}:{query.lower().strip()}".encode()).hexdigest()
+    path = CACHE_DIR / f"{key}.json"
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if time.time() - data["ts"] > CACHE_TTL:
+            path.unlink(missing_ok=True)
+            return None
+        return data["results"]
+    except Exception:
+        return None
+
+
+def _cache_set(source: str, query: str, results: list) -> None:
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    key = hashlib.md5(f"{source}:{query.lower().strip()}".encode()).hexdigest()
+    path = CACHE_DIR / f"{key}.json"
+    try:
+        path.write_text(
+            json.dumps({"ts": time.time(), "results": results}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
 
 import yaml
 import requests
@@ -81,6 +115,9 @@ def load_config() -> dict:
 # ── Grounding tools (called by the agent) ─────────────────────────────────────
 
 def _gz_search(query: str, max_results: int, timeout: int) -> list[dict]:
+    cached = _cache_get("gz", query)
+    if cached is not None:
+        return cached
     slug = re.sub(r"\s+", "-", query.strip())
     url = f"https://www.giallozafferano.it/ricerca-ricette/{slug}/"
     try:
@@ -97,10 +134,14 @@ def _gz_search(query: str, max_results: int, timeout: int) -> list[dict]:
         title_el = card.select_one(".gz-title")
         title = title_el.get_text(strip=True) if title_el else (a.get("title") or "")
         results.append({"titolo": title, "url": a["href"], "fonte": "GialloZafferano"})
+    _cache_set("gz", query, results)
     return results
 
 
 def _sp_search(query: str, max_results: int, timeout: int) -> list[dict]:
+    cached = _cache_get("sp", query)
+    if cached is not None:
+        return cached
     slug = re.sub(r"\s+", "-", query.strip())
     url = f"https://www.salepepe.it/ricerca/{slug}/"
     try:
@@ -119,11 +160,15 @@ def _sp_search(query: str, max_results: int, timeout: int) -> list[dict]:
         h3 = card.select_one("h3")
         title = h3.get_text(strip=True) if h3 else link.get_text(strip=True)
         results.append({"titolo": title, "url": link["href"], "fonte": "Sale & Pepe"})
+    _cache_set("sp", query, results)
     return results
 
 
 def _gr_search(query: str, max_results: int, timeout: int = 4) -> list[dict]:
     """Gambero Rosso via Google site: search (sito blocca scraper diretti)."""
+    cached = _cache_get("gr", query)
+    if cached is not None:
+        return cached
     q = requests.utils.quote(f"site:gamberorosso.it {query}")
     url = f"https://www.google.com/search?q={q}&num={max_results}"
     try:
@@ -149,7 +194,9 @@ def _gr_search(query: str, max_results: int, timeout: int = 4) -> list[dict]:
             "estratto": snippet_el.get_text(strip=True)[:250] if snippet_el else "",
             "fonte": "Gambero Rosso",
         })
-    return results[:max_results]
+    results = results[:max_results]
+    _cache_set("gr", query, results)
+    return results
 
 
 def _semantic_search(query: str, source_filter: str, max_results: int) -> list[dict] | None:

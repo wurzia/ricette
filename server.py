@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).parent
 load_dotenv(ROOT / ".env")
 
-from agent import stream_agent, load_config, warmup, model_ready  # noqa: E402 (after load_dotenv)
+from agent import stream_agent, load_config, warmup, model_ready, CACHE_DIR  # noqa: E402 (after load_dotenv)
 
 import os
 # DATA_DIR can be set via env to decouple user data from the app directory.
@@ -239,6 +239,17 @@ def admin_delete_user(username: str, request: Request):
         shutil.rmtree(udir)
     _histories.pop(username, None)
     return {"ok": True}
+
+
+@app.delete("/api/admin/cache")
+def admin_clear_cache(request: Request):
+    require_admin(request)
+    deleted = 0
+    if CACHE_DIR.exists():
+        for f in CACHE_DIR.glob("*.json"):
+            f.unlink()
+            deleted += 1
+    return {"deleted": deleted}
 
 
 # ── App routes ────────────────────────────────────────────────────────────────
