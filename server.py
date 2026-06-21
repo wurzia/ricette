@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).parent
 load_dotenv(ROOT / ".env")
 
-from agent import stream_agent, load_config, warmup  # noqa: E402 (after load_dotenv)
+from agent import stream_agent, load_config, warmup, model_ready  # noqa: E402 (after load_dotenv)
 
 import os
 # DATA_DIR can be set via env to decouple user data from the app directory.
@@ -257,6 +257,7 @@ class ChatRequest(BaseModel):
 @app.post("/api/chat")
 def chat(req: ChatRequest, request: Request):
     username = require_user(request)
+    model_ready.wait(timeout=30)
     history = _histories.setdefault(username, [])
     config = load_config()
 

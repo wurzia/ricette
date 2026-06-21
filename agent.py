@@ -12,6 +12,7 @@ import sys
 import re
 import json
 import textwrap
+import threading
 from pathlib import Path
 
 ROOT = Path(__file__).parent
@@ -33,6 +34,7 @@ load_dotenv(ROOT / ".env")
 
 INDEX_DIR = ROOT / "index"
 _chroma_collection = None  # lazy-loaded
+model_ready = threading.Event()  # set once warmup query completes
 
 
 def _get_collection():
@@ -57,6 +59,7 @@ def warmup():
             col.query(query_texts=["warmup"], n_results=1)
         except Exception:
             pass
+    model_ready.set()
 
 HEADERS = {
     "User-Agent": (
